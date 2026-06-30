@@ -42,6 +42,7 @@ Included now:
 - monday.com GraphQL adapter
 - CLI for the critical API steps
 - RTMP nginx example
+- Debian bootstrap scripts for a clean remote host
 - architecture and setup notes
 
 Planned next:
@@ -142,6 +143,24 @@ deploy/
 src/zoom_monday_rtmp_demo/
 tests/
 ```
+
+## Remote host bootstrap
+
+This repo includes a Debian-oriented bootstrap script for a clean host:
+
+```bash
+sudo bash deploy/scripts/bootstrap_debian_host.sh --domain mondayzoom.sellsystems.agency
+```
+
+What it does:
+
+- installs `ffmpeg` and `libnginx-mod-rtmp`
+- creates runtime directories
+- installs nginx RTMP and HLS config
+- reloads nginx after config test
+
+It does **not** install secrets. Zoom and monday credentials must still be
+provided separately on the target host.
 
 ## Status
 
