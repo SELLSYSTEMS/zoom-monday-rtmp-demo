@@ -8,11 +8,16 @@ SITE_TARGET="/etc/nginx/sites-available/mondayzoom-hls.conf"
 SITE_LINK="/etc/nginx/sites-enabled/mondayzoom-hls.conf"
 NGINX_CONF="/etc/nginx/nginx.conf"
 RUNTIME_DIR="/var/lib/zoom-monday-rtmp-demo"
+RTMP_LISTEN_PORT="1935"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain)
       DOMAIN="${2:?missing value for --domain}"
+      shift 2
+      ;;
+    --rtmp-listen-port)
+      RTMP_LISTEN_PORT="${2:?missing value for --rtmp-listen-port}"
       shift 2
       ;;
     *)
@@ -35,7 +40,14 @@ apt-get install -y --no-install-recommends ffmpeg libnginx-mod-rtmp
 install -d -m 0755 "${RUNTIME_DIR}" "${RUNTIME_DIR}/recordings" "${RUNTIME_DIR}/hls"
 chown -R www-data:www-data "${RUNTIME_DIR}"
 
-cp "${REPO_ROOT}/deploy/nginx/rtmp.conf.example" "${RTMP_CONF_TARGET}"
+python3 - <<PY
+from pathlib import Path
+source = Path("${REPO_ROOT}/deploy/nginx/rtmp.conf.example")
+target = Path("${RTMP_CONF_TARGET}")
+text = source.read_text()
+text = text.replace("__RTMP_LISTEN_PORT__", "${RTMP_LISTEN_PORT}")
+target.write_text(text)
+PY
 python3 - <<PY
 from pathlib import Path
 source = Path("${REPO_ROOT}/deploy/nginx/mondayzoom-hls-site.conf.example")
@@ -68,5 +80,6 @@ systemctl reload nginx
 
 echo "Bootstrap complete"
 echo "Domain: ${DOMAIN}"
-echo "RTMP ingest: rtmp://${DOMAIN}/live"
+echo "Local RTMP listen port: ${RTMP_LISTEN_PORT}"
+echo "Public RTMP ingest URL must be supplied separately from your platform's published port mapping"
 echo "HLS path: http://${DOMAIN}/hls/<stream_key>.m3u8"

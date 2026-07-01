@@ -1,6 +1,6 @@
 rtmp {
     server {
-        listen 1935;
+        listen __RTMP_LISTEN_PORT__;
         chunk_size 4096;
 
         application live {

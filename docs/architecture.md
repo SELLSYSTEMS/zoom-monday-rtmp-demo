@@ -63,10 +63,27 @@ The RTMP layer is intentionally generic:
 - recordings written to a separate directory
 - optional HLS for verification
 
+## Fronted-instance mode
+
+Some instance platforms do not expose local `1935` automatically.
+
+In that model:
+
+- RTMP still runs fully inside the same instance
+- Zoom still points directly to the same instance
+- but RTMP must bind to a local port that the platform already publishes
+
+That leads to two different port numbers:
+
+- local nginx RTMP listen port
+- public published port used in `RTMP_STREAM_BASE`
+
+The code path already supports this because the Zoom API adapter only needs the
+public stream URL you provide through configuration.
+
 ## Next implementation priorities
 
 1. Add Zoom server-to-server OAuth token bootstrap
 2. Add recording conversion and transcript pipeline
 3. Add end-to-end integration tests on the target instance
 4. Add RTMS migration notes if the account gets RTMS enabled
-
