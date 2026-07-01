@@ -91,6 +91,7 @@ there are two workable patterns:
 A starter `Node-RED` flow is included here:
 
 - `deploy/node_red/zoom_webhook_hls_flow.json`
+- `deploy/node_red/zoom_control_flow.json`
 
 It provides:
 
@@ -102,6 +103,13 @@ It provides:
   - simple player page for `page_url`
 - `GET /hls/:stream/index.m3u8`
 - `GET /hls/:stream/:segment`
+- `POST /zoom/create-meeting`
+  - creates a Zoom meeting through the repo CLI
+- `POST /zoom/create-meeting-with-livestream`
+  - creates a meeting and then configures the custom livestream target
+- `POST /zoom/start-livestream`
+- `POST /zoom/stop-livestream`
+- `GET /zoom/livestream/:meetingId`
 
 The flow expects:
 
@@ -142,6 +150,16 @@ python -m zoom_monday_rtmp_demo.cli zoom-create-meeting \
   --topic "Demo Call" \
   --duration 60 \
   --start-in-minutes 5
+```
+
+Create a meeting and configure the livestream target in one command:
+
+```bash
+python -m zoom_monday_rtmp_demo.cli zoom-provision-meeting \
+  --topic "Demo Call" \
+  --duration 60 \
+  --start-in-minutes 5 \
+  --stream-key demo-12345678901
 ```
 
 Configure livestream:
@@ -200,6 +218,19 @@ It is not centered on:
 
 That is deliberate because Zoom's current authorization rules make the SDK path
 worse for automated recording use cases.
+
+Also note this operational distinction:
+
+- basic meeting creation can work even when custom livestream does not
+- the livestream PATCH endpoints can still fail with Zoom API `code: 3000`
+  until the account plan and meeting policy allow live streaming
+
+The clean response to that failure is:
+
+1. verify the app scopes
+2. verify the app is activated
+3. verify the host user and account policy can use custom livestream
+4. verify the account license tier actually exposes that setting
 
 ## Repo layout
 

@@ -165,6 +165,10 @@ If the app is not activated:
 - token generation will fail
 - event subscriptions may not deliver
 
+Reference screenshot:
+
+![Activated Zoom S2S app](assets/zoom-app-activation-active.png)
+
 ## Step 5. Confirm the Zoom host can use custom livestream
 
 The app alone is not enough.
@@ -177,6 +181,20 @@ Before blaming the API, confirm:
 - the host user is the one referenced by `ZOOM_USER_ID`
 - that host can use custom livestream in the Zoom UI
 - the account license and policy actually allow it
+
+Practical operator note:
+
+- if meeting creation works but `PATCH /meetings/{id}/livestream` fails with
+  Zoom API `code: 3000`, the app is not the whole story
+- this usually means the account setting for meeting livestreaming is unavailable,
+  disabled, or locked by plan/policy
+- if the Zoom web portal only shows upgrade prompts and you cannot find any
+  live-stream setting in account or user meeting settings, treat that as a plan
+  or policy blocker until proven otherwise
+
+Example of the failure signature in the account settings UI:
+
+![No live streaming setting found in account settings search](assets/zoom-account-live-stream-search-empty.png)
 
 ## Step 6. Mint a short-lived access token
 
@@ -279,6 +297,32 @@ python -m zoom_monday_rtmp_demo.cli zoom-create-meeting \
 
 If that works, your app scopes and token are aligned with the repo.
 
+### Check the Node-RED control lane
+
+The included control flow adds these local routes:
+
+- `POST /zoom/create-meeting`
+- `POST /zoom/create-meeting-with-livestream`
+- `POST /zoom/start-livestream`
+- `POST /zoom/stop-livestream`
+- `GET /zoom/livestream/:meetingId`
+
+Minimal create-only smoke test:
+
+```bash
+curl -k -X POST 'https://127.0.0.1:1881/zoom/create-meeting' \
+  -H 'Content-Type: application/json' \
+  -d '{"topic":"Node-RED demo","duration":30,"start_in_minutes":10}'
+```
+
+Provision-with-livestream smoke test:
+
+```bash
+curl -k -X POST 'https://127.0.0.1:1881/zoom/create-meeting-with-livestream' \
+  -H 'Content-Type: application/json' \
+  -d '{"topic":"Node-RED livestream demo","duration":30,"start_in_minutes":10}'
+```
+
 ## Common failure modes
 
 ### Webhook validation returns 401 or never reaches the handler
@@ -303,6 +347,7 @@ Check:
 - the app has the livestream-related scopes
 - the host user is allowed to use custom livestream
 - the meeting belongs to the same user context as `ZOOM_USER_ID`
+- the account plan actually exposes the live-stream setting in Zoom
 
 ### Start livestream succeeds but no media arrives
 

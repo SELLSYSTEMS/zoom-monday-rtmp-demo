@@ -1,0 +1,393 @@
+[
+  {
+    "id": "zoomcontrolflow",
+    "type": "tab",
+    "label": "Zoom Control API",
+    "disabled": false,
+    "info": "HTTP control endpoints that wrap the repo CLI for meeting creation and livestream control."
+  },
+  {
+    "id": "zoomcreateonlyin",
+    "type": "http in",
+    "z": "zoomcontrolflow",
+    "name": "Create meeting",
+    "url": "/zoom/create-meeting",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 120,
+    "y": 40,
+    "wires": [
+      [
+        "zoomcreateonlyprep"
+      ]
+    ]
+  },
+  {
+    "id": "zoomcreateonlyprep",
+    "type": "function",
+    "z": "zoomcontrolflow",
+    "name": "Prepare create-only command",
+    "func": "const body = (msg.payload && typeof msg.payload === \"object\") ? msg.payload : {};\nconst topic = String(body.topic || \"Zoom Call\").trim();\nconst duration = Number.parseInt(body.duration ?? 60, 10);\nconst startInMinutes = Number.parseInt(body.start_in_minutes ?? body.startInMinutes ?? 5, 10);\nconst shellQuote = (value) => `'${String(value).replace(/'/g, `'\"'\"'`)}'`;\n\nif (!topic) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"topic is required\" };\n    return [null, msg];\n}\nif (!Number.isInteger(duration) || duration <= 0) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"duration must be a positive integer\" };\n    return [null, msg];\n}\nif (!Number.isInteger(startInMinutes) || startInMinutes < 0) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"start_in_minutes must be a non-negative integer\" };\n    return [null, msg];\n}\n\nmsg.payload = [\n    \"zoom-create-meeting\",\n    `--topic ${shellQuote(topic)}`,\n    `--duration ${duration}`,\n    `--start-in-minutes ${startInMinutes}`\n].join(\" \");\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 40,
+    "wires": [
+      [
+        "zoomcreateonlyexec"
+      ],
+      [
+        "zoomcontrolresp"
+      ]
+    ]
+  },
+  {
+    "id": "zoomcreateonlyexec",
+    "type": "exec",
+    "z": "zoomcontrolflow",
+    "command": "/root/zoom-monday-rtmp-demo/deploy/scripts/run_zoom_cli.sh",
+    "addpay": "payload",
+    "append": "",
+    "useSpawn": "false",
+    "timer": "",
+    "winHide": false,
+    "oldrc": false,
+    "name": "Run create-only command",
+    "x": 780,
+    "y": 40,
+    "wires": [
+      [
+        "zoomcontrolparse"
+      ],
+      [
+        "zoomcontrolerror"
+      ],
+      [
+        "zoomcontrolerror"
+      ]
+    ]
+  },
+  {
+    "id": "zoomcreatein",
+    "type": "http in",
+    "z": "zoomcontrolflow",
+    "name": "Create meeting with livestream",
+    "url": "/zoom/create-meeting-with-livestream",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 180,
+    "y": 80,
+    "wires": [
+      [
+        "zoomcreateprep"
+      ]
+    ]
+  },
+  {
+    "id": "zoomcreateprep",
+    "type": "function",
+    "z": "zoomcontrolflow",
+    "name": "Prepare create command",
+    "func": "const body = (msg.payload && typeof msg.payload === \"object\") ? msg.payload : {};\nconst topic = String(body.topic || \"Zoom Call\").trim();\nconst duration = Number.parseInt(body.duration ?? 60, 10);\nconst startInMinutes = Number.parseInt(body.start_in_minutes ?? body.startInMinutes ?? 5, 10);\nconst streamKey = String(body.stream_key ?? body.streamKey ?? \"\").trim();\nconst shellQuote = (value) => `'${String(value).replace(/'/g, `'\"'\"'`)}'`;\n\nif (!topic) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"topic is required\" };\n    return [null, msg];\n}\nif (!Number.isInteger(duration) || duration <= 0) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"duration must be a positive integer\" };\n    return [null, msg];\n}\nif (!Number.isInteger(startInMinutes) || startInMinutes < 0) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"start_in_minutes must be a non-negative integer\" };\n    return [null, msg];\n}\nif (streamKey && !/^[A-Za-z0-9._-]+$/.test(streamKey)) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"stream_key may contain only letters, numbers, dot, underscore, and dash\" };\n    return [null, msg];\n}\n\nconst args = [\n    \"zoom-provision-meeting\",\n    `--topic ${shellQuote(topic)}`,\n    `--duration ${duration}`,\n    `--start-in-minutes ${startInMinutes}`\n];\nif (streamKey) {\n    args.push(`--stream-key ${shellQuote(streamKey)}`);\n}\nmsg.payload = args.join(\" \");\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 80,
+    "wires": [
+      [
+        "zoomcreateexec"
+      ],
+      [
+        "zoomcontrolresp"
+      ]
+    ]
+  },
+  {
+    "id": "zoomcreateexec",
+    "type": "exec",
+    "z": "zoomcontrolflow",
+    "command": "/root/zoom-monday-rtmp-demo/deploy/scripts/run_zoom_cli.sh",
+    "addpay": "payload",
+    "append": "",
+    "useSpawn": "false",
+    "timer": "",
+    "winHide": false,
+    "oldrc": false,
+    "name": "Run create command",
+    "x": 780,
+    "y": 80,
+    "wires": [
+      [
+        "zoomcontrolparse"
+      ],
+      [
+        "zoomcontrolerror"
+      ],
+      [
+        "zoomcontrolerror"
+      ]
+    ]
+  },
+  {
+    "id": "zoomstartin",
+    "type": "http in",
+    "z": "zoomcontrolflow",
+    "name": "Start livestream",
+    "url": "/zoom/start-livestream",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 140,
+    "y": 180,
+    "wires": [
+      [
+        "zoomstartprep"
+      ]
+    ]
+  },
+  {
+    "id": "zoomstartprep",
+    "type": "function",
+    "z": "zoomcontrolflow",
+    "name": "Prepare start command",
+    "func": "const body = (msg.payload && typeof msg.payload === \"object\") ? msg.payload : {};\nconst meetingId = String(body.meeting_id ?? body.meetingId ?? \"\").trim();\nconst displayName = String(body.display_name ?? body.displayName ?? body.topic ?? \"Zoom Live\").trim();\nconst shellQuote = (value) => `'${String(value).replace(/'/g, `'\"'\"'`)}'`;\n\nif (!/^\\d+$/.test(meetingId)) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"meeting_id must be a numeric Zoom meeting id\" };\n    return [null, msg];\n}\nif (!displayName) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"display_name is required\" };\n    return [null, msg];\n}\n\nmsg.payload = [\n    \"zoom-start-livestream\",\n    `--meeting-id ${meetingId}`,\n    `--display-name ${shellQuote(displayName)}`\n].join(\" \");\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 180,
+    "wires": [
+      [
+        "zoomstartexec"
+      ],
+      [
+        "zoomcontrolresp"
+      ]
+    ]
+  },
+  {
+    "id": "zoomstartexec",
+    "type": "exec",
+    "z": "zoomcontrolflow",
+    "command": "/root/zoom-monday-rtmp-demo/deploy/scripts/run_zoom_cli.sh",
+    "addpay": "payload",
+    "append": "",
+    "useSpawn": "false",
+    "timer": "",
+    "winHide": false,
+    "oldrc": false,
+    "name": "Run start command",
+    "x": 780,
+    "y": 180,
+    "wires": [
+      [
+        "zoomcontrolparse"
+      ],
+      [
+        "zoomcontrolerror"
+      ],
+      [
+        "zoomcontrolerror"
+      ]
+    ]
+  },
+  {
+    "id": "zoomstopin",
+    "type": "http in",
+    "z": "zoomcontrolflow",
+    "name": "Stop livestream",
+    "url": "/zoom/stop-livestream",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 140,
+    "y": 280,
+    "wires": [
+      [
+        "zoomstopprep"
+      ]
+    ]
+  },
+  {
+    "id": "zoomstopprep",
+    "type": "function",
+    "z": "zoomcontrolflow",
+    "name": "Prepare stop command",
+    "func": "const body = (msg.payload && typeof msg.payload === \"object\") ? msg.payload : {};\nconst meetingId = String(body.meeting_id ?? body.meetingId ?? \"\").trim();\n\nif (!/^\\d+$/.test(meetingId)) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"meeting_id must be a numeric Zoom meeting id\" };\n    return [null, msg];\n}\n\nmsg.payload = [\n    \"zoom-stop-livestream\",\n    `--meeting-id ${meetingId}`\n].join(\" \");\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 460,
+    "y": 280,
+    "wires": [
+      [
+        "zoomstopexec"
+      ],
+      [
+        "zoomcontrolresp"
+      ]
+    ]
+  },
+  {
+    "id": "zoomstopexec",
+    "type": "exec",
+    "z": "zoomcontrolflow",
+    "command": "/root/zoom-monday-rtmp-demo/deploy/scripts/run_zoom_cli.sh",
+    "addpay": "payload",
+    "append": "",
+    "useSpawn": "false",
+    "timer": "",
+    "winHide": false,
+    "oldrc": false,
+    "name": "Run stop command",
+    "x": 780,
+    "y": 280,
+    "wires": [
+      [
+        "zoomcontrolparse"
+      ],
+      [
+        "zoomcontrolerror"
+      ],
+      [
+        "zoomcontrolerror"
+      ]
+    ]
+  },
+  {
+    "id": "zoomgetin",
+    "type": "http in",
+    "z": "zoomcontrolflow",
+    "name": "Get livestream",
+    "url": "/zoom/livestream/:meetingId",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 130,
+    "y": 380,
+    "wires": [
+      [
+        "zoomgetprep"
+      ]
+    ]
+  },
+  {
+    "id": "zoomgetprep",
+    "type": "function",
+    "z": "zoomcontrolflow",
+    "name": "Prepare get command",
+    "func": "const meetingId = String(msg.req?.params?.meetingId ?? \"\").trim();\nif (!/^\\d+$/.test(meetingId)) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"meetingId must be a numeric Zoom meeting id\" };\n    return [null, msg];\n}\n\nmsg.payload = [\n    \"zoom-get-livestream\",\n    `--meeting-id ${meetingId}`\n].join(\" \");\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 460,
+    "y": 380,
+    "wires": [
+      [
+        "zoomgetexec"
+      ],
+      [
+        "zoomcontrolresp"
+      ]
+    ]
+  },
+  {
+    "id": "zoomgetexec",
+    "type": "exec",
+    "z": "zoomcontrolflow",
+    "command": "/root/zoom-monday-rtmp-demo/deploy/scripts/run_zoom_cli.sh",
+    "addpay": "payload",
+    "append": "",
+    "useSpawn": "false",
+    "timer": "",
+    "winHide": false,
+    "oldrc": false,
+    "name": "Run get command",
+    "x": 780,
+    "y": 380,
+    "wires": [
+      [
+        "zoomcontrolparse"
+      ],
+      [
+        "zoomcontrolerror"
+      ],
+      [
+        "zoomcontrolerror"
+      ]
+    ]
+  },
+  {
+    "id": "zoomcontrolparse",
+    "type": "function",
+    "z": "zoomcontrolflow",
+    "name": "Parse CLI JSON",
+    "func": "let data;\ntry {\n    data = (typeof msg.payload === \"string\") ? JSON.parse(msg.payload) : msg.payload;\n} catch (err) {\n    msg.statusCode = 502;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = {\n        error: \"Zoom CLI returned invalid JSON\",\n        raw: typeof msg.payload === \"string\" ? msg.payload : JSON.stringify(msg.payload ?? null),\n        details: err.message\n    };\n    return [null, msg];\n}\n\nmsg.statusCode = 200;\nmsg.headers = { \"Content-Type\": \"application/json\" };\nmsg.payload = data;\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1080,
+    "y": 220,
+    "wires": [
+      [
+        "zoomcontrolresp"
+      ],
+      [
+        "zoomcontrolerror"
+      ]
+    ]
+  },
+  {
+    "id": "zoomcontrolerror",
+    "type": "function",
+    "z": "zoomcontrolflow",
+    "name": "Format CLI error",
+    "func": "const raw = typeof msg.payload === \"string\" ? msg.payload.trim() : JSON.stringify(msg.payload ?? null);\nlet rc = msg.rc;\nif (rc && typeof rc === \"object\" && Object.prototype.hasOwnProperty.call(rc, \"code\")) {\n    rc = rc.code;\n}\nmsg.statusCode = msg.statusCode || (Number.isInteger(rc) && rc !== 0 ? 502 : 500);\nmsg.headers = { \"Content-Type\": \"application/json\" };\nmsg.payload = {\n    error: msg.payload?.error || \"Zoom control command failed\",\n    rc: rc ?? null,\n    output: raw || null\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1320,
+    "y": 220,
+    "wires": [
+      [
+        "zoomcontrolresp"
+      ]
+    ]
+  },
+  {
+    "id": "zoomcontrolresp",
+    "type": "http response",
+    "z": "zoomcontrolflow",
+    "name": "Control response",
+    "statusCode": "",
+    "headers": {},
+    "x": 1540,
+    "y": 220,
+    "wires": []
+  }
+]

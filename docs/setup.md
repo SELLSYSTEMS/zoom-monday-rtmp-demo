@@ -5,7 +5,7 @@
 - Python `3.11+`
 - `ffmpeg`
 - an RTMP-capable nginx build or equivalent
-- a Zoom user with custom livestream permissions
+- a Zoom account and host user that can use custom livestream for meetings
 - a monday.com board and API token
 
 ## Zoom
@@ -15,7 +15,16 @@ You need:
 - a valid access token
 - a target user ID, usually `me`
 - custom livestream enabled for the host user
+- a Zoom plan and account policy that actually expose the live-stream setting
 - a webhook secret token if you use the included webhook flow
+
+Practical note:
+
+- plain meeting creation can still work on accounts that cannot use custom
+  livestream yet
+- in that case, `zoom-create-meeting` and `POST /zoom/create-meeting` remain
+  useful, while livestream configuration will fail until Zoom account settings
+  are fixed
 
 Current code path can mint a fresh Server-to-Server OAuth token automatically
 when `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, and `ZOOM_CLIENT_SECRET` are set.

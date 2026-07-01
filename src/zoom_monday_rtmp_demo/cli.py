@@ -23,6 +23,38 @@ def cmd_zoom_create_meeting(args: argparse.Namespace) -> None:
     _print(meeting)
 
 
+def cmd_zoom_provision_meeting(args: argparse.Namespace) -> None:
+    zoom = ZoomApi(ZoomConfig.from_env())
+    rtmp = RtmpConfig.from_env()
+    meeting = zoom.create_meeting(
+        topic=args.topic,
+        duration_minutes=args.duration,
+        start_in_minutes=args.start_in_minutes,
+    )
+    meeting_id = str(meeting["id"])
+    stream_key = (args.stream_key or "").strip() or meeting_id
+    stream_url, page_url = zoom.build_stream_urls(rtmp, stream_key)
+    zoom.update_livestream(
+        meeting_id,
+        stream_url=stream_url,
+        stream_key=stream_key,
+        page_url=page_url,
+        resolution=rtmp.resolution,
+    )
+    _print(
+        {
+            "meeting": meeting,
+            "livestream": {
+                "meeting_id": meeting_id,
+                "stream_url": stream_url,
+                "stream_key": stream_key,
+                "page_url": page_url,
+                "resolution": rtmp.resolution,
+            },
+        }
+    )
+
+
 def cmd_zoom_set_livestream(args: argparse.Namespace) -> None:
     zoom = ZoomApi(ZoomConfig.from_env())
     rtmp = RtmpConfig.from_env()
@@ -126,6 +158,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--duration", required=True, type=int)
     p.add_argument("--start-in-minutes", type=int, default=5)
     p.set_defaults(func=cmd_zoom_create_meeting)
+
+    p = sub.add_parser("zoom-provision-meeting")
+    p.add_argument("--topic", required=True)
+    p.add_argument("--duration", required=True, type=int)
+    p.add_argument("--start-in-minutes", type=int, default=5)
+    p.add_argument("--stream-key", default="")
+    p.set_defaults(func=cmd_zoom_provision_meeting)
 
     p = sub.add_parser("zoom-set-livestream")
     p.add_argument("--meeting-id", required=True)
