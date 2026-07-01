@@ -18,6 +18,15 @@ class ConfigTests(unittest.TestCase):
         cfg = ZoomConfig.from_env()
         self.assertEqual(cfg.user_id, "me")
         self.assertEqual(cfg.base_url, "https://api.zoom.us/v2")
+        self.assertFalse(cfg.has_account_credentials)
+
+    def test_zoom_config_accepts_account_credentials_without_access_token(self) -> None:
+        os.environ["ZOOM_ACCOUNT_ID"] = "acct"
+        os.environ["ZOOM_CLIENT_ID"] = "client"
+        os.environ["ZOOM_CLIENT_SECRET"] = "secret"
+        cfg = ZoomConfig.from_env()
+        self.assertEqual(cfg.account_id, "acct")
+        self.assertTrue(cfg.has_account_credentials)
 
     def test_monday_config_requires_core_values(self) -> None:
         os.environ["MONDAY_API_TOKEN"] = "token"

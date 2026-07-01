@@ -3,17 +3,45 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import requests
+
 from zoom_monday_rtmp_demo.config import RtmpConfig, ZoomConfig
-from zoom_monday_rtmp_demo.http import request_json
+from zoom_monday_rtmp_demo.http import HttpError, request_json
 
 
 class ZoomApi:
     def __init__(self, config: ZoomConfig):
         self.config = config
         self.headers = {
-            "Authorization": f"Bearer {config.access_token}",
+            "Authorization": f"Bearer {self._resolve_access_token()}",
             "Content-Type": "application/json",
         }
+
+    def _resolve_access_token(self) -> str:
+        if self.config.has_account_credentials:
+            return self._mint_account_access_token()
+        return self.config.access_token
+
+    def _mint_account_access_token(self) -> str:
+        response = requests.post(
+            self.config.token_url,
+            auth=(self.config.client_id, self.config.client_secret),
+            data={
+                "grant_type": "account_credentials",
+                "account_id": self.config.account_id,
+            },
+            timeout=60,
+        )
+        if response.status_code >= 400:
+            raise HttpError(
+                f"POST {self.config.token_url} failed: "
+                f"{response.status_code} {response.text}"
+            )
+        payload = response.json()
+        token = str(payload.get("access_token", "")).strip()
+        if not token:
+            raise HttpError(f"POST {self.config.token_url} returned no access_token")
+        return token
 
     def create_meeting(
         self,

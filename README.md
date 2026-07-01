@@ -124,6 +124,10 @@ Copy `.env.example` into your secret store or export the variables directly.
 The CLI reads environment variables at runtime. No credentials are stored in the
 repo.
 
+If `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, and `ZOOM_CLIENT_SECRET` are present,
+the CLI mints a fresh Server-to-Server OAuth token automatically. A static
+`ZOOM_ACCESS_TOKEN` is still accepted as a fallback override.
+
 Start with these docs:
 
 - `docs/setup.md`

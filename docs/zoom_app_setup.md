@@ -214,10 +214,12 @@ Important:
 - there is no refresh token in this flow
 - agents should mint a fresh token when needed instead of committing one into
   the repo
+- this repository can now mint the token automatically at runtime when
+  `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, and `ZOOM_CLIENT_SECRET` are present
 
 ## Step 7. Map the values into this repository
 
-At minimum the runtime needs:
+Minimum runtime values when you want to pass a one-off token directly:
 
 ```env
 ZOOM_BASE_URL=https://api.zoom.us/v2
@@ -234,12 +236,16 @@ Recommended operator or agent handoff values to keep outside Git:
 ZOOM_ACCOUNT_ID=...
 ZOOM_CLIENT_ID=...
 ZOOM_CLIENT_SECRET=...
+ZOOM_BASE_URL=https://api.zoom.us/v2
+ZOOM_TOKEN_URL=https://zoom.us/oauth/token
 ZOOM_WEBHOOK_SECRET_TOKEN=...
 ZOOM_USER_ID=me
+RTMP_STREAM_BASE=rtmp://your-instance.example.com:49224/live
+RTMP_PAGE_BASE=https://your-instance.example.com/player
 ```
 
-The current repo does not yet mint tokens automatically inside the CLI, so
-`ZOOM_ACCESS_TOKEN` is still required at runtime.
+When those account credentials are available, `ZOOM_ACCESS_TOKEN` is optional.
+The CLI will mint a fresh token automatically before the Zoom API call.
 
 ## Step 8. Validate before real meetings
 

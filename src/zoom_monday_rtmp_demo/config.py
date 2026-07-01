@@ -19,14 +19,35 @@ def _optional(name: str, default: str = "") -> str:
 class ZoomConfig:
     base_url: str
     access_token: str
+    account_id: str
+    client_id: str
+    client_secret: str
+    token_url: str
     user_id: str
     join_url_base: str
 
+    @property
+    def has_account_credentials(self) -> bool:
+        return bool(self.account_id and self.client_id and self.client_secret)
+
     @classmethod
     def from_env(cls) -> "ZoomConfig":
+        access_token = _optional("ZOOM_ACCESS_TOKEN")
+        account_id = _optional("ZOOM_ACCOUNT_ID")
+        client_id = _optional("ZOOM_CLIENT_ID")
+        client_secret = _optional("ZOOM_CLIENT_SECRET")
+        if not access_token and not (account_id and client_id and client_secret):
+            raise ValueError(
+                "missing Zoom authentication: set ZOOM_ACCESS_TOKEN or "
+                "ZOOM_ACCOUNT_ID + ZOOM_CLIENT_ID + ZOOM_CLIENT_SECRET"
+            )
         return cls(
             base_url=_optional("ZOOM_BASE_URL", "https://api.zoom.us/v2"),
-            access_token=_required("ZOOM_ACCESS_TOKEN"),
+            access_token=access_token,
+            account_id=account_id,
+            client_id=client_id,
+            client_secret=client_secret,
+            token_url=_optional("ZOOM_TOKEN_URL", "https://zoom.us/oauth/token"),
             user_id=_optional("ZOOM_USER_ID", "me"),
             join_url_base=_optional("ZOOM_DEFAULT_JOIN_URL_BASE", "https://zoom.us/j"),
         )
@@ -70,4 +91,3 @@ class RtmpConfig:
             recordings_dir=_optional("RECORDINGS_DIR", "/var/lib/zoom-monday-rtmp-demo/recordings"),
             recording_stable_seconds=int(_optional("RECORDING_STABLE_SECONDS", "15")),
         )
-

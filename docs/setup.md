@@ -17,10 +17,10 @@ You need:
 - custom livestream enabled for the host user
 - a webhook secret token if you use the included webhook flow
 
-Current code path uses `ZOOM_ACCESS_TOKEN` directly.
+Current code path can mint a fresh Server-to-Server OAuth token automatically
+when `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, and `ZOOM_CLIENT_SECRET` are set.
 
-That keeps the bootstrap simple. A later step can add first-class server-to-
-server OAuth token generation.
+`ZOOM_ACCESS_TOKEN` is still supported as a direct runtime override or fallback.
 
 The recommended app creation and operator handoff walkthrough lives here:
 
