@@ -57,6 +57,7 @@ Included now:
 - Zoom REST adapter
 - monday.com GraphQL adapter
 - CLI for the critical API steps
+- step-by-step Zoom app setup guide
 - RTMP nginx example
 - Debian bootstrap scripts for a clean remote host
 - architecture and setup notes
@@ -122,6 +123,11 @@ Copy `.env.example` into your secret store or export the variables directly.
 
 The CLI reads environment variables at runtime. No credentials are stored in the
 repo.
+
+Start with these docs:
+
+- `docs/setup.md`
+- `docs/zoom_app_setup.md`
 
 ## Example commands
 

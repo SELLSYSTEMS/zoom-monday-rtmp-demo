@@ -1,6 +1,7 @@
 import os
 import unittest
 
+from zoom_monday_rtmp_demo.adapters.zoom_api import ZoomApi
 from zoom_monday_rtmp_demo.config import MondayConfig, RtmpConfig, ZoomConfig
 
 
@@ -27,10 +28,22 @@ class ConfigTests(unittest.TestCase):
 
     def test_rtmp_config_reads_defaults(self) -> None:
         os.environ["RTMP_STREAM_BASE"] = "rtmp://example/live"
-        os.environ["RTMP_PAGE_BASE"] = "https://example/hls"
+        os.environ["RTMP_PAGE_BASE"] = "https://example/player"
         cfg = RtmpConfig.from_env()
         self.assertEqual(cfg.resolution, "720p")
         self.assertEqual(cfg.recording_stable_seconds, 15)
+
+    def test_build_stream_urls_uses_human_page_route(self) -> None:
+        cfg = RtmpConfig(
+            stream_base="rtmp://example.com:49224/live",
+            page_base="https://example.com/player",
+            resolution="720p",
+            recordings_dir="/tmp/recordings",
+            recording_stable_seconds=15,
+        )
+        stream_url, page_url = ZoomApi.build_stream_urls(cfg, "demo-stream")
+        self.assertEqual(stream_url, "rtmp://example.com:49224/live")
+        self.assertEqual(page_url, "https://example.com/player/demo-stream")
 
 
 if __name__ == "__main__":

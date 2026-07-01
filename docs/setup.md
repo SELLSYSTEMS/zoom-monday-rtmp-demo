@@ -15,11 +15,16 @@ You need:
 - a valid access token
 - a target user ID, usually `me`
 - custom livestream enabled for the host user
+- a webhook secret token if you use the included webhook flow
 
 Current code path uses `ZOOM_ACCESS_TOKEN` directly.
 
 That keeps the bootstrap simple. A later step can add first-class server-to-
 server OAuth token generation.
+
+The recommended app creation and operator handoff walkthrough lives here:
+
+- `docs/zoom_app_setup.md`
 
 ## monday.com
 
@@ -73,6 +78,9 @@ Important:
 
 - `RTMP_STREAM_BASE` is the public address Zoom calls
 - it does **not** need to equal the local nginx listen port number
+- `RTMP_PAGE_BASE` should be the public human-facing live page base
+  - with the included player route, use something like:
+    - `https://instance.example.com/player`
 
 ## Safe deployment rule
 

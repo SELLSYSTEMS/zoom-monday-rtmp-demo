@@ -103,6 +103,5 @@ class ZoomApi:
     @staticmethod
     def build_stream_urls(rtmp: RtmpConfig, stream_key: str) -> tuple[str, str]:
         stream_url = rtmp.stream_base.rstrip("/")
-        page_url = f"{rtmp.page_base.rstrip('/')}/{stream_key}.m3u8"
+        page_url = f"{rtmp.page_base.rstrip('/')}/{stream_key}"
         return stream_url, page_url
-
