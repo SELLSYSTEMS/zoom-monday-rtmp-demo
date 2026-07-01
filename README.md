@@ -68,6 +68,46 @@ Planned next:
 - post-processing and transcript worker
 - optional RTMS migration path
 
+## Optional Node-RED lane for fronted instances
+
+If the same instance must keep both:
+
+- public Zoom webhook delivery
+- public HLS/player delivery
+- public RTMP ingest
+
+there are two workable patterns:
+
+- separate published slots of the same instance
+  - one published slot for `Node-RED`
+  - one published slot for RTMP
+- a fronted HTTPS ingress on the root domain
+  - keep `RTMP` on its published high port
+  - proxy `/zoom/webhook` and `/player/*` to local `Node-RED`
+  - serve `/hls/*` and `/recordings/*` from the fronting app itself or another
+    local static layer
+
+A starter `Node-RED` flow is included here:
+
+- `deploy/node_red/zoom_webhook_hls_flow.json`
+
+It provides:
+
+- `POST /zoom/webhook`
+  - Zoom endpoint validation response
+  - signature verification with `x-zm-signature`
+  - JSONL event logging
+- `GET /player/:stream`
+  - simple player page for `page_url`
+- `GET /hls/:stream/index.m3u8`
+- `GET /hls/:stream/:segment`
+
+The flow expects:
+
+- `ZOOM_WEBHOOK_SECRET_TOKEN`
+
+in the `Node-RED` environment.
+
 ## Install
 
 ```bash

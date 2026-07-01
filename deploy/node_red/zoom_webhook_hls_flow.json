@@ -1,0 +1,358 @@
+[
+  {
+    "id": "zoomrtmpflow",
+    "type": "tab",
+    "label": "Zoom Webhooks + HLS",
+    "disabled": false,
+    "info": "Public webhook, player, and HLS proxy endpoints for a fronted single-instance Zoom + RTMP deployment."
+  },
+  {
+    "id": "zoomwebhookin",
+    "type": "http in",
+    "z": "zoomrtmpflow",
+    "name": "Zoom webhook",
+    "url": "/zoom/webhook",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 140,
+    "y": 80,
+    "wires": [
+      [
+        "zoomwebhookfn"
+      ]
+    ]
+  },
+  {
+    "id": "zoomwebhookfn",
+    "type": "function",
+    "z": "zoomrtmpflow",
+    "name": "Validate or acknowledge",
+    "func": "const body = msg.payload || {};\nconst event = body.event;\n\nif (event === \"endpoint.url_validation\") {\n    const plainToken = body?.payload?.plainToken;\n    const secret = env.get(\"ZOOM_WEBHOOK_SECRET_TOKEN\") || \"\";\n    if (!plainToken || !secret) {\n        msg.statusCode = 503;\n        msg.headers = { \"Content-Type\": \"application/json\" };\n        msg.payload = {\n            error: \"Missing plainToken or ZOOM_WEBHOOK_SECRET_TOKEN\"\n        };\n        return [msg, null];\n    }\n\n    const encryptedToken = crypto\n        .createHmac(\"sha256\", secret)\n        .update(plainToken)\n        .digest(\"hex\");\n\n    msg.statusCode = 200;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = {\n        plainToken,\n        encryptedToken\n    };\n    return [msg, null];\n}\n\nconst timestamp = msg.req?.headers?.[\"x-zm-request-timestamp\"] || \"\";\nconst signature = msg.req?.headers?.[\"x-zm-signature\"] || \"\";\nconst secret = env.get(\"ZOOM_WEBHOOK_SECRET_TOKEN\") || \"\";\nlet signatureValid = false;\nlet expectedSignature = \"\";\n\nif (timestamp && signature && secret) {\n    const message = `v0:${timestamp}:${JSON.stringify(body)}`;\n    const hash = crypto.createHmac(\"sha256\", secret).update(message).digest(\"hex\");\n    expectedSignature = `v0=${hash}`;\n    signatureValid = signature === expectedSignature;\n}\n\nconst eventMsg = {\n    payload: {\n        received_at: new Date().toISOString(),\n        event,\n        signature_valid: signatureValid,\n        expected_signature: expectedSignature,\n        headers: {\n            \"x-zm-request-timestamp\": timestamp,\n            \"x-zm-signature\": signature\n        },\n        body\n    }\n};\n\nmsg.statusCode = 200;\nmsg.headers = { \"Content-Type\": \"application/json\" };\nmsg.payload = { ok: true };\nreturn [msg, eventMsg];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [
+      {
+        "var": "crypto",
+        "module": "crypto"
+      }
+    ],
+    "x": 380,
+    "y": 80,
+    "wires": [
+      [
+        "zoomwebhookresp"
+      ],
+      [
+        "zoomwebhookjson"
+      ]
+    ]
+  },
+  {
+    "id": "zoomwebhookresp",
+    "type": "http response",
+    "z": "zoomrtmpflow",
+    "name": "Webhook response",
+    "statusCode": "",
+    "headers": {},
+    "x": 660,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "zoomwebhookjson",
+    "type": "json",
+    "z": "zoomrtmpflow",
+    "name": "Stringify event",
+    "property": "payload",
+    "action": "str",
+    "pretty": false,
+    "x": 650,
+    "y": 120,
+    "wires": [
+      [
+        "zoomwebhookfile"
+      ]
+    ]
+  },
+  {
+    "id": "zoomwebhookfile",
+    "type": "file",
+    "z": "zoomrtmpflow",
+    "name": "Append event log",
+    "filename": "/var/lib/zoom-monday-rtmp-demo/webhooks/zoom-events.jsonl",
+    "filenameType": "str",
+    "appendNewline": true,
+    "createDir": true,
+    "overwriteFile": "false",
+    "encoding": "none",
+    "x": 900,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "playerin",
+    "type": "http in",
+    "z": "zoomrtmpflow",
+    "name": "Player page",
+    "url": "/player/:stream",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 130,
+    "y": 220,
+    "wires": [
+      [
+        "playerfn"
+      ]
+    ]
+  },
+  {
+    "id": "playerfn",
+    "type": "function",
+    "z": "zoomrtmpflow",
+    "name": "Render player page",
+    "func": "const stream = (msg.req?.params?.stream || \"\").trim();\nif (!/^[A-Za-z0-9._-]+$/.test(stream)) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"Invalid stream id\" };\n    return msg;\n}\nmsg.statusCode = 200;\nmsg.headers = { \"Content-Type\": \"text/html; charset=utf-8\" };\nmsg.payload = `<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n<title>Zoom Stream ${stream}</title>\n<style>\nbody { font-family: Arial, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; padding:24px; }\nmain { max-width: 960px; margin: 0 auto; }\nvideo { width:100%; background:#000; border-radius:12px; }\na { color:#93c5fd; }\n</style>\n</head>\n<body>\n<main>\n<h1>Zoom Stream: ${stream}</h1>\n<p>Playlist: <a href=\"/hls/${stream}/index.m3u8\">/hls/${stream}/index.m3u8</a></p>\n<video controls autoplay playsinline src=\"/hls/${stream}/index.m3u8\"></video>\n</main>\n</body>\n</html>`;\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 390,
+    "y": 220,
+    "wires": [
+      [
+        "playerresp"
+      ]
+    ]
+  },
+  {
+    "id": "playerresp",
+    "type": "http response",
+    "z": "zoomrtmpflow",
+    "name": "Player response",
+    "statusCode": "",
+    "headers": {},
+    "x": 650,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "playlistin",
+    "type": "http in",
+    "z": "zoomrtmpflow",
+    "name": "Playlist request",
+    "url": "/hls/:stream/index.m3u8",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 150,
+    "y": 340,
+    "wires": [
+      [
+        "playlistprep"
+      ]
+    ]
+  },
+  {
+    "id": "playlistprep",
+    "type": "function",
+    "z": "zoomrtmpflow",
+    "name": "Build playlist proxy",
+    "func": "const stream = (msg.req?.params?.stream || \"\").trim();\nif (!/^[A-Za-z0-9._-]+$/.test(stream)) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"Invalid stream id\" };\n    return [null, msg];\n}\nmsg.url = `http://127.0.0.1/hls/${stream}/index.m3u8`;\nmsg.headers = { Host: \"mondayzoom.sellsystems.agency\" };\nmsg._reply_headers = {\n    \"Content-Type\": \"application/vnd.apple.mpegurl\",\n    \"Cache-Control\": \"no-cache\",\n    \"Access-Control-Allow-Origin\": \"*\"\n};\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 410,
+    "y": 340,
+    "wires": [
+      [
+        "playlistfetch"
+      ],
+      [
+        "playlisterror"
+      ]
+    ]
+  },
+  {
+    "id": "playlistfetch",
+    "type": "http request",
+    "z": "zoomrtmpflow",
+    "name": "Fetch local playlist",
+    "method": "GET",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 650,
+    "y": 320,
+    "wires": [
+      [
+        "playlistreply"
+      ]
+    ]
+  },
+  {
+    "id": "playlistreply",
+    "type": "function",
+    "z": "zoomrtmpflow",
+    "name": "Reply playlist",
+    "func": "msg.headers = msg._reply_headers || {};\nmsg.statusCode = 200;\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 880,
+    "y": 320,
+    "wires": [
+      [
+        "playlistresp"
+      ]
+    ]
+  },
+  {
+    "id": "playlistresp",
+    "type": "http response",
+    "z": "zoomrtmpflow",
+    "name": "Playlist response",
+    "statusCode": "",
+    "headers": {},
+    "x": 1110,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "playlisterror",
+    "type": "http response",
+    "z": "zoomrtmpflow",
+    "name": "Playlist error",
+    "statusCode": "",
+    "headers": {},
+    "x": 650,
+    "y": 380,
+    "wires": []
+  },
+  {
+    "id": "segmentin",
+    "type": "http in",
+    "z": "zoomrtmpflow",
+    "name": "Segment request",
+    "url": "/hls/:stream/:segment",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 150,
+    "y": 460,
+    "wires": [
+      [
+        "segmentprep"
+      ]
+    ]
+  },
+  {
+    "id": "segmentprep",
+    "type": "function",
+    "z": "zoomrtmpflow",
+    "name": "Build segment proxy",
+    "func": "const stream = (msg.req?.params?.stream || \"\").trim();\nconst segment = (msg.req?.params?.segment || \"\").trim();\nif (!/^[A-Za-z0-9._-]+$/.test(stream) || !/^[A-Za-z0-9._-]+\\.ts$/.test(segment)) {\n    msg.statusCode = 400;\n    msg.headers = { \"Content-Type\": \"application/json\" };\n    msg.payload = { error: \"Invalid stream or segment\" };\n    return [null, msg];\n}\nmsg.url = `http://127.0.0.1/hls/${stream}/${segment}`;\nmsg.headers = { Host: \"mondayzoom.sellsystems.agency\" };\nmsg._reply_headers = {\n    \"Content-Type\": \"video/mp2t\",\n    \"Cache-Control\": \"no-cache\",\n    \"Access-Control-Allow-Origin\": \"*\"\n};\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 410,
+    "y": 460,
+    "wires": [
+      [
+        "segmentfetch"
+      ],
+      [
+        "segmenterror"
+      ]
+    ]
+  },
+  {
+    "id": "segmentfetch",
+    "type": "http request",
+    "z": "zoomrtmpflow",
+    "name": "Fetch local segment",
+    "method": "GET",
+    "ret": "bin",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 650,
+    "y": 440,
+    "wires": [
+      [
+        "segmentreply"
+      ]
+    ]
+  },
+  {
+    "id": "segmentreply",
+    "type": "function",
+    "z": "zoomrtmpflow",
+    "name": "Reply segment",
+    "func": "msg.headers = msg._reply_headers || {};\nmsg.statusCode = 200;\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 880,
+    "y": 440,
+    "wires": [
+      [
+        "segmentresp"
+      ]
+    ]
+  },
+  {
+    "id": "segmentresp",
+    "type": "http response",
+    "z": "zoomrtmpflow",
+    "name": "Segment response",
+    "statusCode": "",
+    "headers": {},
+    "x": 1110,
+    "y": 440,
+    "wires": []
+  },
+  {
+    "id": "segmenterror",
+    "type": "http response",
+    "z": "zoomrtmpflow",
+    "name": "Segment error",
+    "statusCode": "",
+    "headers": {},
+    "x": 650,
+    "y": 500,
+    "wires": []
+  }
+]
