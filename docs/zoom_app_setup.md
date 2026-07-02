@@ -192,6 +192,18 @@ Practical operator note:
   live-stream setting in account or user meeting settings, treat that as a plan
   or policy blocker until proven otherwise
 
+Verified account signature from the working `2026-07-02` run:
+
+- the host profile showed `Zoom Meetings` with `100 participants`
+- the account meeting settings showed `Allow livestreaming of meetings` enabled
+- `Custom Live Streaming Service` was checked in the same section
+
+Reference screenshots:
+
+![Paid Zoom Meetings license row](assets/zoom-profile-meetings-license-row.png)
+
+![Account livestream setting enabled](assets/zoom-account-livestream-section.png)
+
 Example of the failure signature in the account settings UI:
 
 ![No live streaming setting found in account settings search](assets/zoom-account-live-stream-search-empty.png)
@@ -323,6 +335,26 @@ curl -k -X POST 'https://127.0.0.1:1881/zoom/create-meeting-with-livestream' \
   -d '{"topic":"Node-RED livestream demo","duration":30,"start_in_minutes":10}'
 ```
 
+### Check host-side meeting start before livestream start
+
+The livestream status call only works after the meeting is actually live.
+
+Practical verified behavior from the `2026-07-02` run:
+
+- `zoom-start-livestream` fails with Zoom API `code: 3000` if the meeting has
+  not started yet
+- the standard Zoom `start_url` may first land on a success page that tries the
+  desktop `zoommtg://` protocol
+- for browser-hosted testing, the reliable host path was:
+  - `https://app.zoom.us/wc/{meetingId}/start?zak=...`
+
+So the operator sequence is:
+
+1. create the meeting
+2. configure the livestream target
+3. start the host meeting in Zoom
+4. only then call `zoom-start-livestream`
+
 ## Common failure modes
 
 ### Webhook validation returns 401 or never reaches the handler
@@ -356,6 +388,30 @@ Check:
 - `RTMP_STREAM_BASE` is the public address Zoom can reach
 - you did not confuse the local RTMP listen port with the public published port
 - your stream key matches the path the RTMP server expects
+
+### Recording watcher waits for the wrong filename
+
+The verified nginx RTMP output pattern is:
+
+- `MEETINGID-TIMESTAMP.flv`
+
+not:
+
+- `MEETINGID.flv`
+
+If you build downstream automation around recording pickup, do not hard-code
+the bare meeting ID filename unless you also change the RTMP recording config.
+
+### HLS was visible during live stream but gone after stop
+
+That is expected for the current demo pattern.
+
+During the verified run:
+
+- `/hls/{meetingId}/index.m3u8` returned `200` while the livestream was active
+- the per-meeting HLS directory was no longer present after livestream stop
+
+So treat HLS as a live-session output, not as the durable archive artifact.
 
 ## Related repo files
 
