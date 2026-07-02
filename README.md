@@ -264,6 +264,8 @@ What it does:
 - creates runtime directories
 - installs nginx RTMP and HLS config
 - reloads nginx after config test
+- keeps nginx `record_unique on`, so recording files are expected to look like
+  `MEETINGID-TIMESTAMP.flv`
 
 What it does **not** do:
 
